@@ -1,1 +1,1 @@
-# cpvp
+# cpvp-tier-2
