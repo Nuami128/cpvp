@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "cpvptier2",
+  "version": "${version}",
+  "name": "cPvP Tier 2",
+  "description": "Crystal PvP utility mod.",
+  "authors": ["you"],
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["com.cpvp.CpvpClient"]
+  },
+  "mixins": ["cpvptier2.mixins.json"],
+  "accessWidener": "cpvptier2.accesswidener",
+  "depends": {
+    "fabricloader": ">=0.18.4",
+    "fabric-api": "*",
+    "minecraft": "~1.21.11",
+    "java": ">=21"
+  }
+}
+
