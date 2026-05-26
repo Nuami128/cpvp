@@ -20,7 +20,7 @@ import net.minecraft.util.math.Vec3d;
  */
 public class SafeAnchorModule {
 
-    private static final int STEP_COOLDOWN_TICKS = 0;
+    private static final int STEP_COOLDOWN_TICKS = 1; // was 0 — needs at least 1 tick gap between steps
     private static final int MAX_CHARGE_RETRIES = 4;
     private static final int DETONATE_DELAY_TICKS = 3;
 
@@ -89,6 +89,7 @@ public class SafeAnchorModule {
             }
             case 1 -> {
                 client.interactionManager.interactBlock(player, Hand.MAIN_HAND, placeAnchorHit);
+                player.swingHand(Hand.MAIN_HAND); // fixes Post flag
                 advance();
             }
             case 2 -> {
@@ -105,14 +106,20 @@ public class SafeAnchorModule {
                 advance();
             }
             case 3 -> {
-                // Charge only if needed.
+                // Send the charge interact if needed, then wait a tick before checking result.
                 if (!isAnchorChargedNow(client, anchorPos)) {
                     tryInteractAnchor(client, player, anchorPos, frontFace);
                 }
-
+                // Always advance to step 4 to verify charge on the next tick.
+                step = 4;
+                waitTicks = 1; // wait 1 tick before checking if charge landed
+            }
+            case 4 -> {
+                // Verify the charge actually landed.
                 if (!isAnchorChargedNow(client, anchorPos)) {
                     if (chargeRetries++ < MAX_CHARGE_RETRIES) {
-                        waitTicks = 0;
+                        step = 3; // retry the charge
+                        waitTicks = 1; // was 0 — must wait at least 1 tick before retrying
                         return;
                     }
                     reset();
@@ -120,12 +127,12 @@ public class SafeAnchorModule {
                 }
                 advance();
             }
-            case 4 -> {
+            case 5 -> {
                 // Place glowstone block in front after charging and before detonation.
                 placeSafetyGlowstone(client, player);
                 advance();
             }
-            case 5 -> {
+            case 6 -> {
                 int detonateSlot = findDetonateHotbarSlot(player);
                 if (detonateSlot != -1) {
                     player.getInventory().selectedSlot = detonateSlot;
@@ -136,7 +143,7 @@ public class SafeAnchorModule {
                 step++;
                 waitTicks = DETONATE_DELAY_TICKS;
             }
-            case 6 -> {
+            case 7 -> {
                 // Snap down at the safety block area.
                 if (safetyBlockPos == null && anchorPos != null && frontFace != null) {
                     safetyBlockPos = anchorPos.offset(frontFace);
@@ -149,12 +156,12 @@ public class SafeAnchorModule {
                 snapLookAt(player, Vec3d.ofCenter(frontDown));
                 advance();
             }
-            case 7 -> {
-                // Then verify charge once more, snap up and detonate.
+            case 8 -> {
+                // Verify charge once more, snap up and detonate.
                 if (!isAnchorChargedNow(client, anchorPos)) {
                     if (chargeRetries++ < MAX_CHARGE_RETRIES) {
                         step = 3;
-                        waitTicks = 0;
+                        waitTicks = 1; // was 0 — must wait at least 1 tick before retrying
                         return;
                     }
                     reset();
@@ -175,10 +182,12 @@ public class SafeAnchorModule {
         }
     }
 
-
+    // Sends interact + swing. The swing packet is required so Grim's Post check
+    // sees a properly closed packet sequence and doesn't flag.
     private void tryInteractAnchor(MinecraftClient client, ClientPlayerEntity player, BlockPos pos, Direction face) {
         BlockHitResult hit = buildAnchorHit(pos, face);
         client.interactionManager.interactBlock(player, Hand.MAIN_HAND, hit);
+        player.swingHand(Hand.MAIN_HAND); // fixes Post flag
     }
 
     private BlockHitResult buildAnchorHit(BlockPos pos, Direction face) {
@@ -215,8 +224,8 @@ public class SafeAnchorModule {
                 false
         );
         client.interactionManager.interactBlock(player, Hand.MAIN_HAND, safetyPlaceHit);
+        player.swingHand(Hand.MAIN_HAND); // fixes Post flag
     }
-
 
     private boolean isAnchorChargedNow(MinecraftClient client, BlockPos pos) {
         if (client.world == null) {
@@ -284,4 +293,3 @@ public class SafeAnchorModule {
         frontFace = null;
     }
 }
-
