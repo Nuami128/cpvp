@@ -21,7 +21,7 @@ import net.minecraft.util.math.Vec3d;
 public class InstantAnchorModule {
 
     private static final int POST_PLACE_WAIT_TICKS = 1;
-    private static final int ACTION_COOLDOWN_TICKS = 0;
+    private static final int ACTION_COOLDOWN_TICKS = 1; // was 0, needs at least 1 tick between actions
     private static final int MAX_CHARGE_RETRIES = 4;
     private static final int DETONATE_DELAY_TICKS = 3;
 
@@ -127,13 +127,13 @@ public class InstantAnchorModule {
                     return;
                 }
                 step = 2;
-                waitTicks = 0;
+                waitTicks = 1; // wait a tick before checking charge
             }
             case 2 -> {
                 if (!hasAnchorCharge(client, anchorPos)) {
                     if (chargeRetries++ < MAX_CHARGE_RETRIES) {
                         step = 1;
-                        waitTicks = 0;
+                        waitTicks = 1; // was 0 — must wait at least 1 tick before retrying
                         return;
                     }
                     reset();
@@ -159,9 +159,12 @@ public class InstantAnchorModule {
         }
     }
 
+    // Returns true and sends interact + swing (swing is required so Grim's Post check
+    // sees a properly closed packet sequence).
     private boolean tryInteractAnchor(MinecraftClient client, ClientPlayerEntity player, BlockPos pos, Direction preferredFace) {
         BlockHitResult preferred = buildAnchorHit(pos, preferredFace);
         client.interactionManager.interactBlock(player, Hand.MAIN_HAND, preferred);
+        player.swingHand(Hand.MAIN_HAND); // fixes Post flag
         return true;
     }
 
@@ -285,4 +288,3 @@ public class InstantAnchorModule {
         resetTriggerBot();
     }
 }
-
